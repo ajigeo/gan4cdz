@@ -22,6 +22,7 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import LeakyReLU
 from matplotlib import pyplot
+from keras.utils.vis_utils import plot_model
 #%%
 import glob
 ndwi_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\ndwi\*.tif")
@@ -143,23 +144,15 @@ def define_generator(image_shape=(128,128,1)):
     e1 = define_encoder_block(in_image, 64, batchnorm=False)
     e2 = define_encoder_block(e1, 128)
     e3 = define_encoder_block(e2, 256)
-    e4 = define_encoder_block(e3, 512)
-    e5 = define_encoder_block(e4, 512)
-    e6 = define_encoder_block(e5, 512)
-    e7 = define_encoder_block(e6, 512)
     # bottleneck, no batch norm and relu
-    b = Conv2D(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(e7)
+    b = Conv2D(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(e3)
     b = Activation('relu')(b)
     # decoder model
-    d1 = decoder_block(b, e7, 512)
-    d2 = decoder_block(d1, e6, 512)
-    d3 = decoder_block(d2, e5, 512)
-    d4 = decoder_block(d3, e4, 512, dropout=False)
-    d5 = decoder_block(d4, e3, 256, dropout=False)
+    d5 = decoder_block(b, e3, 256, dropout=False)
     d6 = decoder_block(d5, e2, 128, dropout=False)
     d7 = decoder_block(d6, e1, 64, dropout=False)
     # output
-    g = Conv2DTranspose(3, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(d7)
+    g = Conv2DTranspose(1, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(d7)
     out_image = Activation('tanh')(g)
     # define model
     model = Model(in_image, out_image)
@@ -272,9 +265,13 @@ print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
 # define the models
-d_model = define_discriminator(image_shape)
-g_model = define_generator(image_shape)
+d_model = define_discriminator((128,128,1))
+g_model = define_generator((128,128,1))
 # define the composite model
-gan_model = define_gan(g_model, d_model, image_shape)
+gan_model = define_gan(g_model, d_model, (128,128,1))
 # train model
 train(d_model, g_model, gan_model, dataset)
+#%%
+plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
+plot_model(g_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
+plot_model(gan_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=True)

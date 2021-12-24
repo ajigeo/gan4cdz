@@ -23,6 +23,7 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import LeakyReLU
 from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
+import matplotlib.pyplot as plt
 #%%
 import glob
 ndwi_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\ndwi\*.tif")
@@ -48,7 +49,7 @@ for i in vv_list:
     vv_pixels = pixels[0]
     big_vv_list.append(vv_pixels)    
 #%% 
-savez_compressed('ndwi_vv8.npz', big_ndwi_list, big_vv_list)
+savez_compressed('vv8_ndwi.npz', big_vv_list,big_ndwi_list)
 #%%
 def load_real_samples(filename):
     # load compressed arrays
@@ -63,11 +64,11 @@ def load_real_samples(filename):
 def plot_images(data,num):
     pyplot.suptitle('NDWI VV image pair of index ' + str(num))
     pyplot.subplot(1,2,1)
-    pyplot.imshow(data[0][num])
+    pyplot.imshow(data[1][num])
     pyplot.title('NDWI')
 
     pyplot.subplot(1,2,2)
-    pyplot.imshow(data[1][num])
+    pyplot.imshow(data[0][num])
     pyplot.title('VV')
     pyplot.show() 
 #%%
@@ -260,12 +261,12 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=50, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('C:/Users/admin/ndwi_vv8.npz')
+dataset = load_real_samples('C:/Users/admin/vv8_ndwi.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
 # define the models
-d_model = define_discriminator((128,128,1))
+d_model = define_discriminator((128,128))
 g_model = define_generator((128,128,1))
 # define the composite model
 gan_model = define_gan(g_model, d_model, (128,128,1))

@@ -5,6 +5,7 @@ from keras.preprocessing.image import img_to_array
 from keras.preprocessing.image import load_img
 from numpy import savez_compressed
 from osgeo import gdal
+import numpy as np
 from numpy import load
 from numpy import zeros
 from numpy import ones
@@ -23,7 +24,6 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import LeakyReLU
 from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
-import matplotlib.pyplot as plt
 #%%
 import glob
 ndwi_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\ndwi\*.tif")
@@ -49,7 +49,7 @@ for i in vv_list:
     vv_pixels = pixels[0]
     big_vv_list.append(vv_pixels)    
 #%% 
-savez_compressed('vv8_ndwi.npz', big_vv_list,big_ndwi_list)
+savez_compressed('ndwi_vv8.npz', big_vv_list, big_ndwi_list)
 #%%
 def load_real_samples(filename):
     # load compressed arrays
@@ -57,19 +57,19 @@ def load_real_samples(filename):
     # unpack arrays
     X1, X2 = data['arr_0'], data['arr_1']
     # scale from [0,255] to [-1,1]
-    #X1 = (X1 - 127.5) / 127.5
-    #X2 = (X2 - 127.5) / 127.5
+    X1 = (X1-np.min(X1))/(np.max(X1)-np.min(X1))
+    X2 = (X2-np.min(X2))/(np.max(X2)-np.min(X2))
     return [X1, X2]
 #%%
 def plot_images(data,num):
     pyplot.suptitle('NDWI VV image pair of index ' + str(num))
     pyplot.subplot(1,2,1)
-    pyplot.imshow(data[1][num])
-    pyplot.title('NDWI')
-
-    pyplot.subplot(1,2,2)
     pyplot.imshow(data[0][num])
     pyplot.title('VV')
+
+    pyplot.subplot(1,2,2)
+    pyplot.imshow(data[1][num])
+    pyplot.title('NDWI')
     pyplot.show() 
 #%%
 def define_discriminator(image_shape):
@@ -142,18 +142,24 @@ def define_generator(image_shape=(128,128,1)):
     # image input
     in_image = Input(shape=image_shape)
     # encoder model
-    e1 = define_encoder_block(in_image, 64, batchnorm=False)
+    e1 = define_encoder_block(in_image, 64, batchnorm=True)
     e2 = define_encoder_block(e1, 128)
     e3 = define_encoder_block(e2, 256)
+    e4 = define_encoder_block(e3, 256)
+    e5 = define_encoder_block(e4, 256)
+    e6 = define_encoder_block(e5, 512)
     # bottleneck, no batch norm and relu
-    b = Conv2D(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(e3)
+    b = Conv2D(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(e6)
     b = Activation('relu')(b)
     # decoder model
-    d5 = decoder_block(b, e3, 256, dropout=False)
-    d6 = decoder_block(d5, e2, 128, dropout=False)
-    d7 = decoder_block(d6, e1, 64, dropout=False)
+    d1 = decoder_block(b, e6, 512)
+    d2 = decoder_block(d1, e5, 256)
+    d3 = decoder_block(d2, e4, 256)
+    d4 = decoder_block(d3, e3, 256, dropout=False)
+    d5 = decoder_block(d4, e2, 128, dropout=False)
+    d6 = decoder_block(d5, e1, 64, dropout=False)
     # output
-    g = Conv2DTranspose(1, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(d7)
+    g = Conv2DTranspose(1, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(d6)
     out_image = Activation('tanh')(g)
     # define model
     model = Model(in_image, out_image)
@@ -205,9 +211,9 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     # generate a batch of fake samples
     X_fakeB, _ = generate_fake_samples(g_model, X_realA, 1)
     # scale all pixels from [-1,1] to [0,1]
-    X_realA = (X_realA + 1) / 2.0
-    X_realB = (X_realB + 1) / 2.0
-    X_fakeB = (X_fakeB + 1) / 2.0
+    #X_realA = (X_realA + 1) / 2.0
+    #X_realB = (X_realB + 1) / 2.0
+    #X_fakeB = (X_fakeB + 1) / 2.0
     # plot real source images
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + i)
@@ -234,7 +240,7 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     
 #%%
 # train pix2pix models
-def train(d_model, g_model, gan_model, dataset, n_epochs=50, n_batch=1):
+def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
     # determine the output square shape of the discriminator
     n_patch = d_model.output_shape[1]
     # unpack dataset
@@ -261,12 +267,12 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=50, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('C:/Users/admin/vv8_ndwi.npz')
+dataset = load_real_samples('E:/vv8_ndwi.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
 # define the models
-d_model = define_discriminator((128,128))
+d_model = define_discriminator((128,128,1))
 g_model = define_generator((128,128,1))
 # define the composite model
 gan_model = define_gan(g_model, d_model, (128,128,1))
@@ -276,3 +282,38 @@ train(d_model, g_model, gan_model, dataset)
 plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
 plot_model(g_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
 plot_model(gan_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=True)
+#%%
+[X1, X2] = load_real_samples('E:/vv8_ndwi.npz')
+#%%
+# load model
+import tensorflow as tf
+model = tf.keras.models.load_model('C:/Users/admin/model_120060.h5')
+#%%
+# select random example
+ix = randint(0, len(X1), 1)
+src_image, tar_image = X1[ix], X2[ix]
+#%%
+# generate image from source
+gen_image = model.predict(src_image)
+gen_image = gen_image.reshape(128,128)
+src_image = src_image.reshape(128,128)
+tar_image = tar_image.reshape(128,128)
+#%% 
+import matplotlib.pyplot as plt
+def plot_final(x,y,z):
+    plt.subplot(1,3,1)
+    plt.imshow(x)
+    plt.title('Source VV image')
+    
+    plt.subplot(1,3,2)
+    plt.imshow(y)
+    plt.title('Generated NDWI image')
+    
+    plt.subplot(1,3,3)
+    plt.imshow(z)
+    plt.title('Target NDWI image')
+
+    plt.show()
+#%%
+# plot all three images
+plot_final(src_image, gen_image, tar_image)

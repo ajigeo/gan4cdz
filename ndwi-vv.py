@@ -26,8 +26,8 @@ from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
 #%%
 import glob
-ndwi_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\ndwi\*.tif")
-vv_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\vv8\*.tif")
+ndwi_list = glob.glob(r"E:\arun\data\vv-ndwi-data\train\ndwi\*.tif")
+vv_list = glob.glob(r"E:\arun\data\vv-ndwi-data\train\vv8\*.tif")
 #%%
 def read_image(filename):
     image = gdal.Open(filename)
@@ -41,15 +41,17 @@ big_ndwi_list = []
 for i in ndwi_list:
     pixels = read_image(i)
     ndwi_pixels = pixels[0]
+    #ndwi_pixels =  ndwi_pixels.transpose(1,1,0)
     big_ndwi_list.append(ndwi_pixels)
 #%%
 big_vv_list = []
 for i in vv_list:
     pixels = read_image(i)
     vv_pixels = pixels[0]
+    #vv_pixels = vv_pixels.transpose(1,2,0)
     big_vv_list.append(vv_pixels)    
 #%% 
-savez_compressed('ndwi_vv8.npz', big_vv_list, big_ndwi_list)
+savez_compressed('vv-ndwi-new.npz', big_vv_list, big_ndwi_list)
 #%%
 def load_real_samples(filename):
     # load compressed arrays
@@ -58,7 +60,9 @@ def load_real_samples(filename):
     X1, X2 = data['arr_0'], data['arr_1']
     # scale from [0,255] to [-1,1]
     X1 = (X1-np.min(X1))/(np.max(X1)-np.min(X1))
+    X1 = (X1 - 0.5)/0.5
     X2 = (X2-np.min(X2))/(np.max(X2)-np.min(X2))
+    X2 = (X2 - 0.5)/0.5
     return [X1, X2]
 #%%
 def plot_images(data,num):
@@ -211,9 +215,9 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     # generate a batch of fake samples
     X_fakeB, _ = generate_fake_samples(g_model, X_realA, 1)
     # scale all pixels from [-1,1] to [0,1]
-    #X_realA = (X_realA + 1) / 2.0
-    #X_realB = (X_realB + 1) / 2.0
-    #X_fakeB = (X_fakeB + 1) / 2.0
+    X_realA = (X_realA + 1) / 2.0
+    X_realB = (X_realB + 1) / 2.0
+    X_fakeB = (X_fakeB + 1) / 2.0
     # plot real source images
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + i)
@@ -236,11 +240,10 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     # save the generator model
     filename2 = 'model_%06d.h5' % (step + 1)
     g_model.save(filename2)
-    print('>Saved: %s and %s' % (filename1, filename2))
-    
+    print('>Saved: %s and %s' % (filename1, filename2))    
 #%%
 # train pix2pix models
-def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
+def train(d_model, g_model, gan_model, dataset, n_epochs=200, n_batch=1):
     # determine the output square shape of the discriminator
     n_patch = d_model.output_shape[1]
     # unpack dataset
@@ -267,7 +270,8 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('E:/vv8_ndwi.npz')
+#dataset = load_real_samples('C:\Users\admin\vv_ndwi_new.npz')
+dataset = load_real_samples('C:/Users/admin/vv_ndwi_new.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
@@ -283,11 +287,11 @@ plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_n
 plot_model(g_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
 plot_model(gan_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=True)
 #%%
-[X1, X2] = load_real_samples('E:/vv8_ndwi.npz')
+[X1, X2] = load_real_samples('C:/Users/admin/vv_ndwi_new.npz')
 #%%
 # load model
 import tensorflow as tf
-model = tf.keras.models.load_model('C:/Users/admin/model_120060.h5')
+model = tf.keras.models.load_model('C:/Users/admin/model_266800.h5')
 #%%
 # select random example
 ix = randint(0, len(X1), 1)

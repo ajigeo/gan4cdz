@@ -16,6 +16,8 @@ from keras.layers import Activation
 from keras.layers import Concatenate
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 from matplotlib import pyplot
+from keras.utils.vis_utils import plot_model
+
 #%%
 # define the discriminator model
 def define_discriminator(image_shape):
@@ -95,7 +97,7 @@ def define_generator(image_shape, n_resnet=9):
 	g = InstanceNormalization(axis=-1)(g)
 	g = Activation('relu')(g)
 	# c7s1-3
-	g = Conv2D(3, (7,7), padding='same', kernel_initializer=init)(g)
+	g = Conv2D(1, (7,7), padding='same', kernel_initializer=init)(g)
 	g = InstanceNormalization(axis=-1)(g)
 	out_image = Activation('tanh')(g)
 	# define model
@@ -259,10 +261,11 @@ def train(d_model_A, d_model_B, g_model_AtoB, g_model_BtoA, c_model_AtoB, c_mode
 			save_models(i, g_model_AtoB, g_model_BtoA)
 #%%
 # load image data
-dataset = load_real_samples('horse2zebra_256.npz')
+dataset = load_real_samples('E:/vv8_ndwi.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
+image_shape = (128,128,1)
 #%%
 # generator: A -> B
 g_model_AtoB = define_generator(image_shape)

@@ -195,6 +195,7 @@ def generate_real_samples(dataset, n_samples, patch_shape):
     X1, X2 = trainA[ix], trainB[ix]
     # generate 'real' class labels (1)
     y = ones((n_samples, patch_shape, patch_shape, 1))
+    y = y * 0.9
     return [X1, X2], y
 #%%
 # generate a batch of images, returns images and targets
@@ -202,7 +203,8 @@ def generate_fake_samples(g_model, samples, patch_shape):
     # generate fake instance
     X = g_model.predict(samples)
     # create 'fake' class labels (0)
-    y = zeros((len(X), patch_shape, patch_shape, 1))
+    y = ones((len(X), patch_shape, patch_shape, 1))
+    y = y * 0.1
     return X, y
 #%%
 # generate samples and save as a plot and save the model

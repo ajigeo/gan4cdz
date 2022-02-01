@@ -1,15 +1,5 @@
-'''
-from os import listdir
-from numpy import asarray
-from numpy import vstack
-from keras.preprocessing.image import img_to_array
-from keras.preprocessing.image import load_img
-from numpy import savez_compressed
-from osgeo import gdal
-'''
 import numpy as np
 from numpy import load
-from numpy import zeros
 from numpy import ones
 from numpy.random import randint
 from tensorflow.keras.optimizers import Adam
@@ -25,34 +15,7 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import BatchNormalization
 from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
-#%%
-'''
-import glob
-ndwi_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\ndwi\*.tif")
-vv_list = glob.glob(r"E:\data\GAN-trials\vv-ndwi-data\train\vv8\*.tif")
-#%%
-def read_image(filename):
-    image = gdal.Open(filename)
-    image_transform = image.GetGeoTransform()
-    image_projection = image.GetProjectionRef()
-    image_array = image.ReadAsArray()
-    #image_shape = image_array.shape()
-    return [image_array,image_projection,image_transform]
-#%%
-big_ndwi_list = []
-for i in ndwi_list:
-    pixels = read_image(i)
-    ndwi_pixels = pixels[0]
-    big_ndwi_list.append(ndwi_pixels)
-#%%
-big_vv_list = []
-for i in vv_list:
-    pixels = read_image(i)
-    vv_pixels = pixels[0]
-    big_vv_list.append(vv_pixels)    
-#%% 
-savez_compressed('ndwi_vv8.npz', big_vv_list, big_ndwi_list)
-'''
+from keras.layers.merge import add
 #%%
 def load_real_samples(filename):
     # load compressed arrays
@@ -107,9 +70,10 @@ def define_discriminator(image_shape):
     opt = Adam(lr=0.0002, beta_1=0.5)
     model.compile(loss='binary_crossentropy', optimizer=opt, loss_weights=[0.5])
     return model
-#%%
+#%% 
+# ResNet
 # define an encoder block
-def define_encoder_block(layer_in, n_filters, batchnorm=True):
+def encoder_block(layer_in, n_filters, batchnorm=True):
     # weight initialization
     init = RandomNormal(stddev=0.02)
     # add downsampling layer
@@ -120,9 +84,9 @@ def define_encoder_block(layer_in, n_filters, batchnorm=True):
     # leaky relu activation
     g = LeakyReLU(alpha=0.2)(g)
     return g
-#%%
+
 # define a decoder block
-def decoder_block(layer_in, skip_in, n_filters, dropout=True):
+def resnet_decoder(layer_in, n_filters, dropout=True):
     # weight initialization
     init = RandomNormal(stddev=0.02)
     # add upsampling layer
@@ -132,37 +96,43 @@ def decoder_block(layer_in, skip_in, n_filters, dropout=True):
     # conditionally add dropout
     if dropout:
         g = Dropout(0.5)(g, training=True)
-    # merge with skip connection
-    g = Concatenate()([g, skip_in])
     # relu activation
     g = LeakyReLU(alpha=0.2)(g)
     return g
-#%%
-# define the standalone generator model
-def define_generator(image_shape=(128,128,1)):
+
+# function for creating an identity residual module
+def residual_module(layer_in, n_filters):
+    # conv1,
+    init = RandomNormal(stddev=0.02)
+    conv1 = Conv2D(n_filters, (3,3), padding='same', activation='relu', kernel_initializer=init)(layer_in)
+    # conv2
+    conv2 = Conv2D(n_filters, (3,3), padding='same', activation='linear', kernel_initializer=init)(conv1)
+    # add filters, assumes filters/channels last
+    layer_out = add([conv2, layer_in])
+    # activation function
+    layer_out = LeakyReLU(alpha=0.2)(layer_out)
+    return layer_out
+
+def resnet_generator(image_shape=(128,128,1)):
     # weight initialization
     init = RandomNormal(stddev=0.02)
     # image input
     in_image = Input(shape=image_shape)
     # encoder model
-    e1 = define_encoder_block(in_image, 64, batchnorm=True)
-    e2 = define_encoder_block(e1, 128)
-    e3 = define_encoder_block(e2, 256)
-    e4 = define_encoder_block(e3, 256)
-    e5 = define_encoder_block(e4, 256)
-    e6 = define_encoder_block(e5, 512)
-    # bottleneck, no batch norm and relu
-    b = Conv2D(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(e6)
-    b = Activation('relu')(b)
-    # decoder model
-    d1 = decoder_block(b, e6, 512)
-    d2 = decoder_block(d1, e5, 256)
-    d3 = decoder_block(d2, e4, 256)
-    d4 = decoder_block(d3, e3, 256, dropout=False)
-    d5 = decoder_block(d4, e2, 128, dropout=False)
-    d6 = decoder_block(d5, e1, 64, dropout=False)
-    # output
-    g = Conv2DTranspose(1, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(d6)
+    e1 = encoder_block(in_image, 64)
+    e2 = encoder_block(e1, 128)
+    e3 = encoder_block(e2, 128)
+    e4 = encoder_block(e3, 256)
+    e5 = encoder_block(e4, 256)
+    r1 = residual_module(e5,256)
+    r2 = residual_module(r1,256)
+    r3 = residual_module(r2,256)
+    d1 = resnet_decoder(r3,256)
+    d2 = resnet_decoder(d1,256)
+    d3 = resnet_decoder(d2, 128)
+    d4 = resnet_decoder(d3, 128)
+    d5 = resnet_decoder(d4, 64)
+    g = Conv2DTranspose(1, (4, 4), strides=(1, 1), padding='same', kernel_initializer=init)(d5)
     out_image = Activation('tanh')(g)
     # define model
     model = Model(in_image, out_image)
@@ -240,13 +210,9 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     filename2 = 'model_%06d.h5' % (step + 1)
     g_model.save(filename2)
     print('>Saved: %s and %s' % (filename1, filename2))
-    
 #%%
-d1_loss_plot = []
-d2_loss_plot = []
-g_loss_plot = []
 # train pix2pix models
-def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
+def train(d_model, g_model, gan_model, dataset, n_epochs=10, n_batch=1):
     # determine the output square shape of the discriminator
     n_patch = d_model.output_shape[1]
     # unpack dataset
@@ -263,13 +229,10 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
         X_fakeB, y_fake = generate_fake_samples(g_model, X_realA, n_patch)
         # update discriminator for real samples
         d_loss1 = d_model.train_on_batch([X_realA, X_realB], y_real)
-        d1_loss_plot.append(d_loss1)
         # update discriminator for generated samples
         d_loss2 = d_model.train_on_batch([X_realA, X_fakeB], y_fake)
-        d2_loss_plot.append(d_loss2)
         # update the generator
         g_loss, _, _ = gan_model.train_on_batch(X_realA, [y_real, X_realB])
-        g_loss_plot.append(g_loss)
         # summarize performance
         print('>%d, d1[%.3f] d2[%.3f] g[%.3f]' % (i + 1, d_loss1, d_loss2, g_loss))
         # summarize model performance
@@ -282,15 +245,13 @@ print('Loaded', dataset[0].shape, dataset[1].shape)
 image_shape = dataset[0].shape[1:]
 # define the models
 d_model = define_discriminator((128,128,1))
-g_model = define_generator((128,128,1))
+g_model = resnet_generator((128,128,1))
 # define the composite model
 gan_model = define_gan(g_model, d_model, (128,128,1))
-# train model
 train(d_model, g_model, gan_model, dataset)
 #%%
-plot_model(d_model, to_file='discriminator.png', show_shapes=True,show_layer_names=False)
-plot_model(g_model, to_file='unet_generator.png', show_shapes=True,show_layer_names=False)
-plot_model(gan_model, to_file='unet_gan.png', show_shapes=True,show_layer_names=True)
+plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
+plot_model(g_model, to_file='resnet-new.png', show_shapes=True,show_layer_names=False)
 #%%
 [X1, X2] = load_real_samples('E:/vv8_ndwi.npz')
 #%%
@@ -307,7 +268,6 @@ gen_image = model.predict(src_image)
 gen_image = gen_image.reshape(128,128)
 src_image = src_image.reshape(128,128)
 tar_image = tar_image.reshape(128,128)
-#src_tar = src_image + tar_image
 #%% 
 import matplotlib.pyplot as plt
 def plot_final(x,y,z):

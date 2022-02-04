@@ -77,7 +77,7 @@ def encoder_block(layer_in, n_filters, batchnorm=True):
     # weight initialization
     init = RandomNormal(stddev=0.02)
     # add downsampling layer
-    g = Conv2D(n_filters, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
+    g = Conv2D(n_filters, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
     # conditionally add batch normalization
     if batchnorm:
         g = BatchNormalization()(g, training=True)
@@ -90,7 +90,7 @@ def resnet_decoder(layer_in, n_filters, dropout=True):
     # weight initialization
     init = RandomNormal(stddev=0.02)
     # add upsampling layer
-    g = Conv2DTranspose(n_filters, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
+    g = Conv2DTranspose(n_filters, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
     # add batch normalization
     g = BatchNormalization()(g, training=True)
     # conditionally add dropout
@@ -105,8 +105,11 @@ def residual_module(layer_in, n_filters):
     # conv1,
     init = RandomNormal(stddev=0.02)
     conv1 = Conv2D(n_filters, (3,3), padding='same', activation='relu', kernel_initializer=init)(layer_in)
+    conv1 = BatchNormalization()(conv1, training=True)
+    conv1 = LeakyReLU(alpha=0.2)(conv1)
     # conv2
     conv2 = Conv2D(n_filters, (3,3), padding='same', activation='linear', kernel_initializer=init)(conv1)
+    conv2 = BatchNormalization()(conv2, training=True)
     # add filters, assumes filters/channels last
     layer_out = add([conv2, layer_in])
     # activation function
@@ -124,10 +127,18 @@ def resnet_generator(image_shape=(128,128,1)):
     e3 = encoder_block(e2, 128)
     e4 = encoder_block(e3, 256)
     e5 = encoder_block(e4, 256)
+    
     r1 = residual_module(e5,256)
     r2 = residual_module(r1,256)
     r3 = residual_module(r2,256)
-    d1 = resnet_decoder(r3,256)
+    r4 = residual_module(r3,256)
+    r5 = residual_module(r4,256)
+    r6 = residual_module(r5,256)
+    r7 = residual_module(r6,256)
+    r8 = residual_module(r7,256)
+    r9 = residual_module(r8,256)
+    
+    d1 = resnet_decoder(r9,256)
     d2 = resnet_decoder(d1,256)
     d3 = resnet_decoder(d2, 128)
     d4 = resnet_decoder(d3, 128)
@@ -212,7 +223,7 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     print('>Saved: %s and %s' % (filename1, filename2))
 #%%
 # train pix2pix models
-def train(d_model, g_model, gan_model, dataset, n_epochs=10, n_batch=1):
+def train(d_model, g_model, gan_model, dataset, n_epochs=400, n_batch=1):
     # determine the output square shape of the discriminator
     n_patch = d_model.output_shape[1]
     # unpack dataset
@@ -257,7 +268,7 @@ plot_model(g_model, to_file='resnet-new.png', show_shapes=True,show_layer_names=
 #%%
 # load model
 import tensorflow as tf
-model = tf.keras.models.load_model('C:/Users/admin/model_120060.h5')
+model = tf.keras.models.load_model('C:/Users/admin/resnet-400/model_533600.h5')
 #%%
 # select random example
 ix = randint(0, len(X1), 1)

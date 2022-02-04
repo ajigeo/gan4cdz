@@ -116,6 +116,7 @@ def residual_module(layer_in, n_filters):
     layer_out = LeakyReLU(alpha=0.2)(layer_out)
     return layer_out
 
+# change this part
 def resnet_generator(image_shape=(128,128,1)):
     # weight initialization
     init = RandomNormal(stddev=0.02)

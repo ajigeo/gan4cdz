@@ -223,17 +223,17 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + i)
         pyplot.axis('off')
-        pyplot.imshow(X_realA[i])
+        pyplot.imshow(X_realA[i],cmap="gray")
     # plot generated target image
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + n_samples + i)
         pyplot.axis('off')
-        pyplot.imshow(X_fakeB[i])
+        pyplot.imshow(X_fakeB[i],cmap="gray")
     # plot real target image
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + n_samples * 2 + i)
         pyplot.axis('off')
-        pyplot.imshow(X_realB[i])
+        pyplot.imshow(X_realB[i],cmap="gray")
     # save plot to file
     filename1 = 'plot_%06d.png' % (step + 1)
     pyplot.savefig(filename1)
@@ -278,7 +278,7 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=200, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('C:/Users/admin/vh_ndvi_train_256.npz')
+dataset = load_real_samples('C:/Users/admin/vv_ndvi_train_256.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
@@ -295,7 +295,7 @@ plot_model(g_model, to_file='unet_generator.png', show_shapes=True,show_layer_na
 plot_model(gan_model, to_file='unet_gan.png', show_shapes=True,show_layer_names=True)
 #%%
 #[X1, X2] = load_real_samples('C:/Users/admin/vh_ndvi_train_256.npz')
-[X1, X2] = load_real_samples('C:/Users/admin/vh_ndvi_test_256.npz')
+[X1, X2] = load_real_samples('C:/Users/admin/vv_ndvi_test_256.npz')
 #%%
 # load model
 import tensorflow as tf
@@ -303,7 +303,7 @@ model = tf.keras.models.load_model('C:/Users/admin/model_224200.h5')
 #model.compile(loss=['binary_crossentropy', 'mae'], optimizer=Adam(lr=0.0002, beta_1=0.5), loss_weights=[1, 100])
 #%%
 # select random example
-ix = [8]#randint(0, len(X1), 1)
+ix = [1050]#randint(0, len(X1), 1)
 src_image, tar_image = X1[ix], X2[ix]
 
 # generate image from source
@@ -316,15 +316,15 @@ import seaborn as sb
 import matplotlib.pyplot as plt
 def plot_final(x,y,z):
     plt.subplot(2,3,1)
-    plt.imshow(x)
+    plt.imshow(x,cmap="gray")
     plt.title('Source VH image')
     
     plt.subplot(2,3,2)
-    plt.imshow(y)
+    plt.imshow(y,cmap="gray")
     plt.title('Generated NDVI image')
     
     plt.subplot(2,3,3)
-    plt.imshow(z)
+    plt.imshow(z,cmap="gray")
     plt.title('Target NDVI image')
     
     plt.subplot(2,3,4)
@@ -345,4 +345,10 @@ def plot_final(x,y,z):
 plot_final(src_image, gen_image, tar_image)
 #%%
 from sklearn.metrics import mean_squared_error
-rms = mean_squared_error(src_image, gen_image, squared=False)
+rms = mean_squared_error(tar_image, gen_image, squared=False)
+mse = mean_squared_error(tar_image, gen_image,squared=True)
+from skimage.metrics import hausdorff_pair, peak_signal_noise_ratio, structural_similarity
+psnr = peak_signal_noise_ratio(tar_image, gen_image)
+ssi = structural_similarity(tar_image, gen_image)
+hd = hausdorff_pair(tar_image, gen_image)
+

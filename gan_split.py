@@ -4,9 +4,9 @@ from numpy import savez_compressed
 from numpy import load
 from matplotlib import pyplot
 import numpy as np
-
-image_list = glob.glob(r"E:\arun\GAN\ndvi_sar_data\ndvi\*.tif")
-file_numbers = [file[36:-4] for file in image_list]
+#%%
+image_list = glob.glob(r"E:\arun\GAN\GAN_data_256\ndvi\*.tif")
+file_numbers = [file[35:-4] for file in image_list]
 
 odd_list = []
 even_list = []
@@ -16,15 +16,15 @@ for i in file_numbers:
     else:
         odd_list.append(i)
         
-ndvi_odd_list_names = [r"E:\arun\GAN\ndvi_sar_data\ndvi\ndvi."+i+".tif" for i in odd_list]
-ndvi_even_list_names = [r"E:\arun\GAN\ndvi_sar_data\ndvi\ndvi."+i+".tif" for i in even_list]
+ndvi_odd_list_names = [r"E:\arun\GAN\GAN_data_256\ndvi\ndvi."+i+".tif" for i in odd_list]
+ndvi_even_list_names = [r"E:\arun\GAN\GAN_data_256\ndvi\ndvi."+i+".tif" for i in even_list]
 
-vv_odd_list_names = [r"E:\arun\GAN\ndvi_sar_data\vv\vv."+i+".tif" for i in odd_list]
-vv_even_list_names = [r"E:\arun\GAN\ndvi_sar_data\vv\vv."+i+".tif" for i in even_list]
+vv_odd_list_names = [r"E:\arun\GAN\GAN_data_256\vv\vv."+i+".tif" for i in odd_list]
+vv_even_list_names = [r"E:\arun\GAN\GAN_data_256\vv\vv."+i+".tif" for i in even_list]
 
-vh_odd_list_names = [r"E:\arun\GAN\ndvi_sar_data\vh\vh."+i+".tif" for i in odd_list]
-vh_even_list_names = [r"E:\arun\GAN\ndvi_sar_data\vh\vh."+i+".tif" for i in even_list]
-
+#vh_odd_list_names = [r"E:\arun\GAN\GAN_data_256\vh\vh."+i+".tif" for i in odd_list]
+#vh_even_list_names = [r"E:\arun\GAN\GAN_data_256\vh\vh."+i+".tif" for i in even_list]
+#%%
 
 def read_image(filename):
     image = gdal.Open(filename)
@@ -42,18 +42,18 @@ def prepare_patches(input_list):
         image_pixels = pixels[0]
         final_list.append(image_pixels)
     return final_list
-
+#%%
 even_ndvi_list = prepare_patches(ndvi_even_list_names)
 even_vv_list = prepare_patches(vv_even_list_names)
-even_vh_list = prepare_patches(vh_even_list_names)
+#even_vh_list = prepare_patches(vh_even_list_names)
 savez_compressed('vv_ndvi_train.npz', even_vv_list, even_ndvi_list)
-savez_compressed('vh_ndvi_train.npz', even_vh_list, even_ndvi_list)
-
+#savez_compressed('vh_ndvi_train_256.npz', even_vh_list, even_ndvi_list)
+#%%
 odd_ndvi_list = prepare_patches(ndvi_odd_list_names)
 odd_vv_list = prepare_patches(vv_odd_list_names)
-odd_vh_list = prepare_patches(vh_odd_list_names)
+#odd_vh_list = prepare_patches(vh_odd_list_names)
 savez_compressed('vv_ndvi_test.npz', odd_vv_list, odd_ndvi_list)
-savez_compressed('vh_ndvi_test.npz', odd_vh_list, odd_ndvi_list)
+#savez_compressed('vh_ndvi_test_256.npz', odd_vh_list, odd_ndvi_list)
 
 #%%
 def load_real_samples(filename):
@@ -67,14 +67,14 @@ def load_real_samples(filename):
     return [X1, X2]
 #%%
 def plot_images(data,num):
-    pyplot.suptitle('NDVI VV image pair of index ' + str(num))
+    pyplot.suptitle('NDVI VH image pair of index ' + str(num))
     pyplot.subplot(1,2,1)
-    pyplot.imshow(data[0][num])
-    pyplot.title('VV')
+    pyplot.imshow(data[0][num],cmap="gray")
+    pyplot.title('VH')
 
     pyplot.subplot(1,2,2)
-    pyplot.imshow(data[1][num])
+    pyplot.imshow(data[1][num],cmap="gray")
     pyplot.title('NDVI')
     pyplot.show() 
     
-dataset = load_real_samples('C:/Users/admin/vv_ndvi.npz')
+dataset = load_real_samples('C:/Users/admin/vv_ndvi_train.npz')

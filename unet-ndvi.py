@@ -278,7 +278,7 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=200, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('C:/Users/admin/vv_ndvi_train_256.npz')
+dataset = load_real_samples('C:/Users/admin/vv_vh_ndvi_train.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
@@ -295,23 +295,31 @@ plot_model(g_model, to_file='unet_generator.png', show_shapes=True,show_layer_na
 plot_model(gan_model, to_file='unet_gan.png', show_shapes=True,show_layer_names=True)
 #%%
 #[X1, X2] = load_real_samples('C:/Users/admin/vh_ndvi_train_256.npz')
-[X1, X2] = load_real_samples('C:/Users/admin/vv_ndvi_test_256.npz')
+[X1, X2] = load_real_samples('C:/Users/admin/vh_ndvi_test_256.npz')
 #%%
 # load model
 import tensorflow as tf
-model = tf.keras.models.load_model('C:/Users/admin/model_224200.h5')
+model = tf.keras.models.load_model('E:/arun/GAN/results/unet_200_ndvi_vh/model_224200.h5')
 #model.compile(loss=['binary_crossentropy', 'mae'], optimizer=Adam(lr=0.0002, beta_1=0.5), loss_weights=[1, 100])
-#%%
-# select random example
-ix = [1050]#randint(0, len(X1), 1)
-src_image, tar_image = X1[ix], X2[ix]
+#%% Calculating the 
+ix = np.arange(0,1062)#randint(0, len(X1), 1)
 
-# generate image from source
-gen_image = model.predict(src_image)
-gen_image = gen_image.reshape(256,256)
-src_image = src_image.reshape(256,256)
-tar_image = tar_image.reshape(256,256)
-#src_tar = src_image + tar_image
+src = [X1[i] for i in ix]
+reshaped_src = [i.reshape(1,256,256) for i in src]
+targ = [X2[i] for i in ix]
+
+pred = [model.predict(reshaped_src[i]) for i in ix] 
+reshaped_pred = [i.reshape(256,256) for i in pred]    
+
+from sklearn.metrics import mean_squared_error
+rmse = [mean_squared_error(targ[i], reshaped_pred[i], squared=False) for i in ix]
+mse = [mean_squared_error(targ[i], reshaped_pred[i], squared=True) for i in ix]    
+
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+psnr = [peak_signal_noise_ratio(targ[i], reshaped_pred[i]) for i in ix]
+ssi = [structural_similarity(targ[i], reshaped_pred[i]) for i in ix]   
+
+#%% Plotting the spurce traget and generated images
 import seaborn as sb
 import matplotlib.pyplot as plt
 def plot_final(x,y,z):
@@ -342,13 +350,5 @@ def plot_final(x,y,z):
     plt.show()
 
 # plot all three images
-plot_final(src_image, gen_image, tar_image)
-#%%
-from sklearn.metrics import mean_squared_error
-rms = mean_squared_error(tar_image, gen_image, squared=False)
-mse = mean_squared_error(tar_image, gen_image,squared=True)
-from skimage.metrics import hausdorff_pair, peak_signal_noise_ratio, structural_similarity
-psnr = peak_signal_noise_ratio(tar_image, gen_image)
-ssi = structural_similarity(tar_image, gen_image)
-hd = hausdorff_pair(tar_image, gen_image)
-
+iy=1000
+plot_final(src[iy], reshaped_pred[iy], targ[iy])

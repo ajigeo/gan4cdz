@@ -13,7 +13,7 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import BatchNormalization
-from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+#from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 
 from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
@@ -29,7 +29,7 @@ def load_real_samples(filename):
     return [X1, X2]
 #%%
 def plot_images(data,num):
-    pyplot.suptitle('NDWI VV image pair of index ' + str(num))
+    pyplot.suptitle('NDWI VH image pair of index ' + str(num))
     pyplot.subplot(1,2,1)
     pyplot.imshow(data[0][num])
     pyplot.title('VV')
@@ -78,11 +78,11 @@ def resnet_block(n_filters, input_layer):
 	init = RandomNormal(stddev=0.02)
 	# first layer convolutional layer
 	g = Conv2D(n_filters, (3,3), padding='same', kernel_initializer=init)(input_layer)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# second convolutional layer
 	g = Conv2D(n_filters, (3,3), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	# concatenate merge channel-wise with input layer
 	g = Concatenate()([g, input_layer])
 	return g
@@ -95,35 +95,35 @@ def define_resnet_generator(image_shape, n_resnet=9):
 	in_image = Input(shape=image_shape)
 	# c7s1-64
 	g = Conv2D(64, (7,7), padding='same', kernel_initializer=init)(in_image)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# d128
 	g = Conv2D(128, (3,3), strides=(2,2), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# d256
 	g = Conv2D(256, (3,3), strides=(2,2), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# R256
 	for _ in range(n_resnet):
 		g = resnet_block(256, g)
 	# u128
 	g = Conv2DTranspose(128, (3,3), strides=(2,2), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# u64
 	g = Conv2DTranspose(64, (3,3), strides=(2,2), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	g = Activation('relu')(g)
 	# c7s1-3
 	g = Conv2D(1, (7,7), padding='same', kernel_initializer=init)(g)
-	g = InstanceNormalization(axis=-1)(g)
+	g = BatchNormalization()(g)
 	out_image = Activation('tanh')(g)
 	# define model
 	model = Model(in_image, out_image)
 	return model
-#%%
+#%% UNET
 # define an encoder block
 def define_encoder_block(layer_in, n_filters, batchnorm=True):
     # weight initialization
@@ -132,7 +132,7 @@ def define_encoder_block(layer_in, n_filters, batchnorm=True):
     g = Conv2D(n_filters, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
     # conditionally add batch normalization
     if batchnorm:
-        g = InstanceNormalization()(g, training=True)
+        g = BatchNormalization()(g, training=True)
     # leaky relu activation
     g = LeakyReLU(alpha=0.2)(g)
     return g
@@ -144,7 +144,7 @@ def decoder_block(layer_in, skip_in, n_filters, dropout=True):
     # add upsampling layer
     g = Conv2DTranspose(n_filters, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init)(layer_in)
     # add batch normalization
-    g = InstanceNormalization()(g, training=True)
+    g = BatchNormalization()(g, training=True)
     # conditionally add dropout
     if dropout:
         g = Dropout(0.5)(g, training=True)
@@ -185,7 +185,7 @@ def define_unet_generator(image_shape=(256,256,1)):
     # define model
     model = Model(in_image, out_image)
     return model
-#%%
+#%% 
 # define the combined generator and discriminator model, for updating the generator
 def define_gan(g_model, d_model, image_shape):
     # make weights in the discriminator not trainable
@@ -239,17 +239,17 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + i)
         pyplot.axis('off')
-        pyplot.imshow(X_realA[i])
+        pyplot.imshow(X_realA[i],cmap="gray")
     # plot generated target image
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + n_samples + i)
         pyplot.axis('off')
-        pyplot.imshow(X_fakeB[i])
+        pyplot.imshow(X_fakeB[i],cmap="gray")
     # plot real target image
     for i in range(n_samples):
         pyplot.subplot(3, n_samples, 1 + n_samples * 2 + i)
         pyplot.axis('off')
-        pyplot.imshow(X_realB[i])
+        pyplot.imshow(X_realB[i],cmap="gray")
     # save plot to file
     filename1 = 'plot_%06d.png' % (step + 1)
     pyplot.savefig(filename1)
@@ -260,7 +260,7 @@ def summarize_performance(step, g_model, dataset, n_samples=3):
     print('>Saved: %s and %s' % (filename1, filename2))
 #%%
 # train pix2pix models
-def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
+def train(d_model, g_model, gan_model, dataset, n_epochs=200, n_batch=1):
     # determine the output square shape of the discriminator
     n_patch = d_model.output_shape[1]
     # unpack dataset
@@ -287,7 +287,7 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=100, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('E:/vh_lai_training.npz')
+dataset = load_real_samples('E:/vh_ndvi_training.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
@@ -300,3 +300,54 @@ plot_model(g_model_unet, to_file='unet_pix2pix.png', show_shapes=True,show_layer
 # define the composite model
 gan_model_resnet = define_gan(g_model_resnet, d_model, (256,256,1))
 train(d_model, g_model_resnet, gan_model_resnet, dataset)
+#%%
+plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
+plot_model(g_model_resnet, to_file='resnet-new.png', show_shapes=True,show_layer_names=False)
+#%%
+[X1, X2] = load_real_samples('E:/vh_ndvi_training.npz')
+#%%
+# load model
+import tensorflow as tf
+model = tf.keras.models.load_model('H:/results/ndvi_from_sar/models/unet_ndvi_vh_224200.h5')
+#model = tf.keras.models.load_model('H:/results/ndvi_from_sar/New folder/model_352800.h5')
+#%%
+# select random example
+ix = randint(0, len(X1), 1)
+src_image, tar_image = X1[ix], X2[ix]
+
+# generate image from source
+gen_image = model.predict(src_image)
+gen_image = gen_image.reshape(256,256)
+src_image = src_image.reshape(256,256)
+tar_image = tar_image.reshape(256,256)
+#%%
+import seaborn as sb
+import matplotlib.pyplot as plt
+def plot_final(x,y,z):
+    plt.subplot(2,3,1)
+    plt.imshow(x,cmap="gray")
+    plt.title('Source VH image')
+    
+    plt.subplot(2,3,2)
+    plt.imshow(y,cmap="gray")
+    plt.title('Generated NDVI image')
+    
+    plt.subplot(2,3,3)
+    plt.imshow(z,cmap="gray")
+    plt.title('Target NDVI image')
+    
+    plt.subplot(2,3,4)
+    sb.distplot(x)
+    plt.title('Source VH image')
+    
+    plt.subplot(2,3,5)
+    sb.distplot(y)
+    plt.title('Generated NDVI image')
+    
+    plt.subplot(2,3,6)
+    sb.distplot(z)
+    plt.title('Target NDVI image')
+
+    plt.show()
+#%% plot all three images
+plot_final(src_image, gen_image, tar_image)

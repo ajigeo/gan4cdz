@@ -13,13 +13,15 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import BatchNormalization
+#from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+
 from matplotlib import pyplot
 from keras.utils.vis_utils import plot_model
 from keras.layers.merge import add
 #%%
 def load_real_samples(filename):
     # load compressed arrays
-    data = load(filename)
+    data = load(filename,allow_pickle=True)
     # unpack arrays
     X1, X2 = data['arr_0'], data['arr_1']
     # scale from [0,255] to [-1,1]
@@ -246,7 +248,7 @@ def train(d_model, g_model, gan_model, dataset, n_epochs=200, n_batch=1):
         if (i + 1) % (bat_per_epo * 10) == 0:
             summarize_performance(i, g_model, dataset)
 #%%
-dataset = load_real_samples('C:/Users/admin/vv_ndvi_train_256.npz')
+dataset = load_real_samples('E:/GAN_data/temporal_cdz/vv_ndvi_training.npz')
 print('Loaded', dataset[0].shape, dataset[1].shape)
 # define input shape based on the loaded dataset
 image_shape = dataset[0].shape[1:]
@@ -260,11 +262,12 @@ train(d_model, g_model, gan_model, dataset)
 plot_model(d_model, to_file='multiple_inputs.png', show_shapes=True,show_layer_names=False)
 plot_model(g_model, to_file='resnet-new.png', show_shapes=True,show_layer_names=False)
 #%%
-[X1, X2] = load_real_samples('C:/Users/admin/vv_ndvi_test_256.npz')
+[X1, X2] = load_real_samples('E:/GAN_data/vh_ndvi_testing.npz')
 #%%
 # load model
 import tensorflow as tf
-model = tf.keras.models.load_model('C:/Users/admin/model_224200.h5')
+model = tf.keras.models.load_model('E:/GAN_results/pan_india/unet_vh/model_705600.h5')
+#model = tf.keras.models.load_model('H:/results/ndvi_from_sar/New folder/model_352800.h5')
 #%%
 # select random example
 ix = randint(0, len(X1), 1)

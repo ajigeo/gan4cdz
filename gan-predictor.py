@@ -1,10 +1,11 @@
 import numpy as np
 from numpy import load
 from matplotlib import pyplot
-from sklearn.metrics import mean_squared_error
+#from sklearn.metrics import mean_squared_error
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 import sewar
 import seaborn as sb
+sb.set_context('paper',2,rc={"lines.linewidth": 2})
 import matplotlib.pyplot as plt
 #%%
 def load_real_samples(filename):
@@ -28,18 +29,18 @@ def plot_images(data,num):
     pyplot.title('NDWI')
     pyplot.show() 
 #%%
-[X1, X2] = load_real_samples('C:/Users/admin/vh_ndvi_entire_256.npz')
-[X3, X4] = load_real_samples('C:/Users/admin/vv_ndvi_entire_256.npz')
+[X1, X2] = load_real_samples('E:/GAN_data/vh_ndvi_testing.npz')
+[X3, X4] = load_real_samples('E:/GAN_data/vv_ndvi_testing.npz')
 #%%
 # load model
 import tensorflow as tf
-unet_vh_model = tf.keras.models.load_model('E:/arun/GAN/results/unet_200_ndvi_vh/model_224200.h5')
-unet_vv_model = tf.keras.models.load_model('E:/arun/GAN/results/unet_200_ndvi_vv/model_224200.h5')
-resnet_vh_model = tf.keras.models.load_model('E:/arun/GAN/results/resnet_200_ndvi_vh/model_224200.h5')
-resnet_vv_model = tf.keras.models.load_model('E:/arun/GAN/results/resnet_200_ndvi_vv/model_224200.h5')
+unet_vh_model = tf.keras.models.load_model('E:/GAN_results/mixed/unet_vh/model_726400.h5')
+unet_vv_model = tf.keras.models.load_model('E:/GAN_results/mixed/unet_vv/model_726400.h5')
+resnet_vh_model = tf.keras.models.load_model('E:/GAN_results/mixed/resnet_vh/model_726400.h5')
+resnet_vv_model = tf.keras.models.load_model('E:/GAN_results/mixed/resnet_vv/model_726400.h5')
 #model.compile(loss=['binary_crossentropy', 'mae'], optimizer=Adam(lr=0.0002, beta_1=0.5), loss_weights=[1, 100])
-#%% Calculating the metrics for VH backscatter
-ix = np.arange(0,1062)#randint(0, len(X1), 1)
+#%% Predicting NDVI for VH data
+ix = np.arange(0,1140)#randint(0, len(X1), 1)
 
 vh_src = [X1[i] for i in ix]
 reshaped_vh_src = [i.reshape(1,256,256) for i in vh_src]
@@ -49,27 +50,27 @@ unet_vh_pred = [unet_vh_model.predict(reshaped_vh_src[i]) for i in ix]
 reshaped_unet_vh_pred = [i.reshape(256,256) for i in unet_vh_pred]   
 resnet_vh_pred = [resnet_vh_model.predict(reshaped_vh_src[i]) for i in ix] 
 reshaped_resnet_vh_pred = [i.reshape(256,256) for i in resnet_vh_pred] 
-#%%
-unet_vh_rmse = [mean_squared_error(vh_targ[i], reshaped_unet_vh_pred[i], squared=False) for i in ix]
-unet_vh_mse = [mean_squared_error(vh_targ[i], reshaped_unet_vh_pred[i], squared=True) for i in ix]
+#%% VH metrics for UNet and ResNet
+unet_vh_rmse = [sewar.rmse(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
 unet_vh_psnr = [peak_signal_noise_ratio(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
-unet_vh_ssi = [structural_similarity(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix] 
-unet_vh_sam = [sewar.sam(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
-unet_vh_ergas = [sewar.ergas(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
-unet_vh_vif = [sewar.vifp(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
-unet_vh_scc = [sewar.scc(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
-unet_vh_uqi = [sewar.uqi(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+unet_vh_ssi = [structural_similarity(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_mse = [sewar.mse(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_sam = [sewar.sam(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_ergas = [sewar.ergas(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_vif = [sewar.vifp(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_scc = [sewar.scc(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
+#unet_vh_uqi = [sewar.uqi(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]
 
-resnet_vh_rmse = [mean_squared_error(vh_targ[i], reshaped_resnet_vh_pred[i], squared=False) for i in ix]
-resnet_vh_mse = [mean_squared_error(vh_targ[i], reshaped_resnet_vh_pred[i], squared=True) for i in ix]    
+resnet_vh_rmse = [sewar.rmse(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
 resnet_vh_psnr = [peak_signal_noise_ratio(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
-resnet_vh_ssi = [structural_similarity(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix] 
-resnet_vh_sam = [sewar.sam(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix] 
-resnet_vh_ergas = [sewar.ergas(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
-resnet_vh_vif = [sewar.vifp(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
-resnet_vh_scc = [sewar.scc(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
-resnet_vh_uqi = [sewar.uqi(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]   
-#%% Calculating the metrics for VV backscatter
+resnet_vh_ssi = [structural_similarity(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
+#resnet_vh_mse = [sewar.mse(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]    
+#resnet_vh_sam = [sewar.sam(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix] 
+#resnet_vh_ergas = [sewar.ergas(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
+#resnet_vh_vif = [sewar.vifp(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
+#resnet_vh_scc = [sewar.scc(vh_targ[i], reshaped_resnet_vh_pred[i]) for i in ix]
+#resnet_vh_uqi = [sewar.uqi(vh_targ[i], reshaped_unet_vh_pred[i]) for i in ix]   
+#%% Predicting NDVI for VV data
 vv_src = [X3[i] for i in ix]
 reshaped_vv_src = [i.reshape(1,256,256) for i in vv_src]
 vv_targ = [X4[i] for i in ix]
@@ -78,62 +79,111 @@ unet_vv_pred = [unet_vv_model.predict(reshaped_vv_src[i]) for i in ix]
 reshaped_unet_vv_pred = [i.reshape(256,256) for i in unet_vv_pred]   
 resnet_vv_pred = [resnet_vv_model.predict(reshaped_vv_src[i]) for i in ix] 
 reshaped_resnet_vv_pred = [i.reshape(256,256) for i in resnet_vv_pred]    
-#%%
-unet_vv_rmse = [mean_squared_error(vv_targ[i], reshaped_unet_vv_pred[i], squared=False) for i in ix]
-unet_vv_mse = [mean_squared_error(vv_targ[i], reshaped_unet_vv_pred[i], squared=True) for i in ix]
+#%% VV metrics for UNet and ResNet
+unet_vv_rmse = [sewar.rmse(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
 unet_vv_psnr = [peak_signal_noise_ratio(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
 unet_vv_ssi = [structural_similarity(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
-unet_vv_sam = [sewar.sam(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix] 
-unet_vv_ergas = [sewar.ergas(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
-unet_vv_vif = [sewar.vifp(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
-unet_vv_scc = [sewar.scc(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
-unet_vv_uqi = [sewar.uqi(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
+#unet_vv_mse = [sewar.mse(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
+#unet_vv_sam = [sewar.sam(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix] 
+#unet_vv_ergas = [sewar.ergas(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
+#unet_vv_vif = [sewar.vifp(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
+#unet_vv_scc = [sewar.scc(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
+#unet_vv_uqi = [sewar.uqi(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]
   
-resnet_vv_rmse = [mean_squared_error(vv_targ[i], reshaped_resnet_vv_pred[i], squared=False) for i in ix]
-resnet_vv_mse = [mean_squared_error(vv_targ[i], reshaped_resnet_vv_pred[i], squared=True) for i in ix]    
+resnet_vv_rmse = [sewar.rmse(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
 resnet_vv_psnr = [peak_signal_noise_ratio(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
 resnet_vv_ssi = [structural_similarity(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
-resnet_vv_sam = [sewar.sam(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
-resnet_vv_ergas = [sewar.ergas(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
-resnet_vv_vif = [sewar.vifp(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
-resnet_vv_scc = [sewar.scc(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
-resnet_vv_uqi = [sewar.uqi(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]     
+#resnet_vv_mse = [sewar.mse(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]    
+#resnet_vv_sam = [sewar.sam(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
+#resnet_vv_ergas = [sewar.ergas(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
+#resnet_vv_vif = [sewar.vifp(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
+#resnet_vv_scc = [sewar.scc(vv_targ[i], reshaped_resnet_vv_pred[i]) for i in ix]
+#resnet_vv_uqi = [sewar.uqi(vv_targ[i], reshaped_unet_vv_pred[i]) for i in ix]     
+#%% Plotting error ditribution
+#def plot_error_dist():
+'''
+fig = plt.figure()
+fig.suptitle('Experiment 3: Image similarity metrics')
+plt.subplot(2,3,1)
+sb.distplot(unet_vh_rmse,label='UNet')
+sb.distplot(resnet_vh_rmse,label='ResNet')
+plt.title('VH RMSE')
+plt.legend()
+plt.subplot(2,3,2)
+sb.distplot(unet_vh_psnr,label='UNet').set(ylabel=None)
+sb.distplot(resnet_vh_psnr,label='ResNet').set(ylabel=None)
+plt.title('VH PSNR')
+#plt.legend()
+plt.subplot(2,3,3)
+sb.distplot(unet_vh_ssi,label='UNet').set(ylabel=None)
+sb.distplot(resnet_vh_ssi,label='ResNet').set(ylabel=None)
+plt.title('VH SSIM')
+#plt.legend()
+plt.subplot(2,3,4)
+sb.distplot(unet_vv_rmse,label='UNet')
+sb.distplot(resnet_vv_rmse,label='ResNet')
+plt.title('VV RMSE')
+plt.legend()
+plt.subplot(2,3,5)
+sb.distplot(unet_vv_psnr,label='UNet').set(ylabel=None)
+sb.distplot(resnet_vv_psnr,label='ResNet').set(ylabel=None)
+plt.title('VV PSNR')
+#plt.legend()
+plt.subplot(2,3,6)
+sb.distplot(unet_vv_ssi,label='UNet').set(ylabel=None)
+sb.distplot(resnet_vv_ssi,label='ResNet').set(ylabel=None)
+plt.title('VV SSIM')
+#plt.legend()
+plt.savefig('experiment3-metrics.png',dpi=1000)
+'''
+
 #%% Plotting the source traget and generated images
 def plot_final_vv(w,x,y,z,title):
     fig = plt.figure()
     fig.suptitle(title)
     plt.subplot(2,4,1)
     plt.imshow(w,cmap="gray")
+    plt.axis('off')
     plt.title('Source VV image')
     
     plt.subplot(2,4,2)
     plt.imshow(x,cmap="gray")
-    plt.title('U-Net GAN Generated NDVI image')
+    plt.axis('off')
+    plt.title('U-Net GAN Generated NDVI')
     
     plt.subplot(2,4,3)
     plt.imshow(y,cmap="gray")
-    plt.title('Resnet GAN Generated NDVI image')
+    plt.axis('off')
+    plt.title('ResNet GAN Generated NDVI')
     
     plt.subplot(2,4,4)
     plt.imshow(z,cmap="gray")
+    plt.axis('off')
     plt.title('Target NDVI image')
     
     plt.subplot(2,4,5)
     sb.distplot(w)
+    plt.xlabel('Backscatter')
     plt.title('Source VV image')
     
     plt.subplot(2,4,6)
     sb.distplot(x)
+    plt.ylabel('')
+    plt.xlabel('NDVI')
     plt.title('U-Net GAN Generated NDVI')
     
     plt.subplot(2,4,7)
     sb.distplot(y)
-    plt.title('Resnet GAN Generated NDVI')
+    plt.ylabel('')
+    plt.xlabel('NDVI')
+    plt.title('ResNet GAN Generated NDVI')
     
     plt.subplot(2,4,8)
     sb.distplot(z)
+    plt.ylabel('')
+    plt.xlabel('NDVI')
     plt.title('Target NDVI image')
-
+    #plt.savefig('experiment1-vv.png',dpi=1000)
     plt.show()
 #%% Plotting the source traget and generated images
 def plot_final_vh(w,x,y,z,title):
@@ -141,91 +191,77 @@ def plot_final_vh(w,x,y,z,title):
     fig.suptitle(title)
     plt.subplot(2,4,1)
     plt.imshow(w,cmap="gray")
+    plt.axis('off')
     plt.title('Source VH image')
     
     plt.subplot(2,4,2)
     plt.imshow(x,cmap="gray")
-    plt.title('U-Net GAN Generated NDVI image')
+    plt.axis('off')
+    plt.title('U-Net GAN Generated NDVI')
     
     plt.subplot(2,4,3)
     plt.imshow(y,cmap="gray")
-    plt.title('Resnet GAN Generated NDVI image')
+    plt.axis('off')
+    plt.title('ResNet GAN Generated NDVI')
     
     plt.subplot(2,4,4)
     plt.imshow(z,cmap="gray")
+    plt.axis('off')
     plt.title('Target NDVI image')
     
     plt.subplot(2,4,5)
     sb.distplot(w)
+    plt.xlabel('Backscatter')
     plt.title('Source VH image')
     
     plt.subplot(2,4,6)
     sb.distplot(x)
+    plt.ylabel('')
+    plt.xlabel('NDVI')
     plt.title('U-Net GAN Generated NDVI')
     
     plt.subplot(2,4,7)
     sb.distplot(y)
-    plt.title('Resnet GAN Generated NDVI')
+    plt.ylabel('')
+    plt.xlabel('NDVI')
+    plt.title('ResNet GAN Generated NDVI')
     
     plt.subplot(2,4,8)
     sb.distplot(z)
+    plt.ylabel('')
+    plt.xlabel('NDVI')
     plt.title('Target NDVI image')
-
+    #plt.savefig('experiment1-vh.png',dpi=1000)
     plt.show()
 #%%
 # plot all three images
-iy=588 #340 160
+iy=0 #100 #340 160
 plot_final_vh(vh_src[iy], reshaped_unet_vh_pred[iy], reshaped_resnet_vh_pred[iy], vh_targ[iy],'NDVI generated by VH polarization')
 plot_final_vv(vv_src[iy], reshaped_unet_vv_pred[iy], reshaped_resnet_vv_pred[iy], vv_targ[iy],'NDVI generated by VV polarization')
 #%%
-def plot_errors(a,b,c,d,w,x,y,z,title):
-    fig = plt.figure()
-    fig.suptitle(title)
-    plt.title('VH Data')
-    plt.subplot(2,4,1)
-    sb.distplot(a)
-    plt.title('RMSE of Unet Generator')
-    
-    plt.subplot(2,4,2)
-    sb.histplot(b)
-    plt.title('MSE of Unet Generator')
-    
-    plt.subplot(2,4,3)
-    sb.histplot(c)
-    plt.title('PSNR of Unet Generator')
-    
-    plt.subplot(2,4,4)
-    sb.histplot(d)
-    plt.title('SSI of Unet Generator')
-    
-    plt.subplot(2,4,5)
-    sb.histplot(w)
-    plt.title('RMSE of Resnet Generator')
-    
-    plt.subplot(2,4,6)
-    sb.histplot(x)
-    plt.title('MSE of Unet Generator')
-    
-    plt.subplot(2,4,7)
-    sb.histplot(y)
-    plt.title('PSNR of Unet Generator')
-    
-    plt.subplot(2,4,8)
-    sb.histplot(z)
-    plt.title('SSI of Unet Generator')
-    plt.show()
-#%%
-plot_errors(unet_vh_rmse,unet_vh_mse,unet_vh_psnr,unet_vh_ssi,resnet_vh_rmse,resnet_vh_mse,resnet_vh_psnr,resnet_vh_ssi,'Metrics for VH Data')
-plot_errors(unet_vv_rmse,unet_vv_mse,unet_vv_psnr,unet_vv_ssi,resnet_vv_rmse,resnet_vv_mse,resnet_vv_psnr,resnet_vv_ssi,'Metrics for VV Data')
-#%%
-unet_vh = [unet_vh_mse,unet_vh_rmse,unet_vh_psnr,unet_vh_ssi,unet_vh_sam,unet_vh_ergas,unet_vh_vif,unet_vh_scc,unet_vh_uqi]
-unet_vv = [unet_vv_mse,unet_vv_rmse,unet_vv_psnr,unet_vv_ssi,unet_vv_sam,unet_vv_ergas,unet_vv_vif,unet_vv_scc,unet_vv_uqi]
-resnet_vh = [resnet_vh_mse,resnet_vh_rmse,resnet_vh_psnr,resnet_vh_ssi,resnet_vh_sam,resnet_vh_ergas,resnet_vh_vif,resnet_vh_scc,resnet_vh_uqi]
-resnet_vv = [resnet_vv_mse,resnet_vv_rmse,resnet_vv_psnr,resnet_vv_ssi,resnet_vv_sam,resnet_vv_ergas,resnet_vv_vif,resnet_vv_scc,resnet_vv_uqi]
+import scipy.stats as st
+unet_vh = [unet_vh_rmse,unet_vh_psnr,unet_vh_ssi]
+unet_vv = [unet_vv_rmse,unet_vv_psnr,unet_vv_ssi]
+resnet_vh = [resnet_vh_rmse,resnet_vh_psnr,resnet_vh_ssi]
+resnet_vv = [resnet_vv_rmse,resnet_vv_psnr,resnet_vv_ssi]
 def errors(x):
-    return [np.mean(i) for i in x]
+    for i in x:
+        print(np.mean(i))
+        print(st.norm.interval(alpha=0.95,loc=np.mean(i),scale=st.sem(i)))
+        print((1.96 *(np.std(i)/np.sqrt(1140))))
+        print(np.median(i))
+        print(np.std(i))
+        print(15 * "#")
+    #print([(np.mean(i),st.norm.interval(alpha=0.95,loc=np.mean(i),scale=st.sem(i)),np.median(i)) for i in x])
+# https://www.geeksforgeeks.org/confidence-interval/
+# https://machinelearningmastery.com/confidence-intervals-for-machine-learning/
 #%%
-unet_vh_metrics = errors(unet_vh)
-unet_vv_metrics = errors(unet_vv)
-resnet_vh_metrics = errors(resnet_vh)
-resnet_vv_metrics = errors(resnet_vv)
+errors(unet_vh)
+errors(unet_vv)
+errors(resnet_vh)
+errors(resnet_vv)
+#%%
+#unet_vh_metrics = errors(unet_vh)
+#unet_vv_metrics = errors(unet_vv)
+#resnet_vh_metrics = errors(resnet_vh)
+#resnet_vv_metrics = errors(resnet_vv)

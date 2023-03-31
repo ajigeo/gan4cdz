@@ -1,4 +1,6 @@
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+from skimage.metrics import peak_signal_noise_ratio
+
 import numpy as np
 #import seaborn as sns
 from osgeo import gdal
@@ -14,19 +16,7 @@ def read_image(filename):
 #y = 3*np.random.randn(50) + x
 #X = sm.add_constant(x)
 #res = sm.OLS(y, X).fit()
-x = read_image(r'E:\data\ISRO-project\intermediate_products\VV_predicted_NDVI\act_01.tif')
-x = np.asarray(x).ravel()
 
-vv_y = read_image(r'E:\data\ISRO-project\intermediate_products\VV_predicted_NDVI\pred_01.tif')
-vv_y = np.asarray(vv_y).ravel()
-
-
-#vh_y = read_image(r'E:\data\ISRO-project\intermediate_products\VH_predicted_NDVI\pred_12.tif')
-#vh_y = np.asarray(vh_y).ravel()
-
-
-# Prediction interval
-# https://machinelearningmastery.com/prediction-intervals-for-machine-learning/
 from numpy import sum as arraysum
 def compute_errors(x,y):
     sum_errs = arraysum((x - y)**2)
@@ -38,15 +28,55 @@ def compute_errors(x,y):
     # https://machinelearningmastery.com/confidence-intervals-for-machine-learning/
     mse = mean_squared_error(x,y,squared=False)
     mae = mean_absolute_error(x,y)
+    psnr = peak_signal_noise_ratio(x,y)
     mse_interval = 1.96 * np.sqrt((mse * (1 - mse)) / len(y))
-    mae_interval = 1.96 * np.sqrt((mae * (1 - mse)) / len(y))
+    mae_interval = 1.96 * np.sqrt((mae * (1 - mae)) / len(y))
+    #psnr_interval = 1.96 * np.sqrt((psnr * (1 - psnr)) / len(y))
     
-    print("Correlation is " + str(np.corrcoef(x,y)[0][1]))
-    print("The MSE of the model @ 95% confidence interval is " + str(mse) + " ± "+ str(mse_interval))
-    print("The MAE of the model @ 95% confidence interval is " + str(mae) + " ± "+ str(mae_interval))
-    print("Theres a 95% likelihood that the true value is between +/- " +str(p_interval))
+    return str(round(mse,3)) + "±"+ str(round(mse_interval,3)), str(round(mae,3)) + "±"+ str(round(mae_interval,3)),str(round(psnr,3)),str(round((np.corrcoef(x,y)[0][1]),3)),str(round(p_interval,3))
+    #print("The RMSE of the model @ 95% confidence interval is " + str(round(mse,3)) + "±"+ str(round(mse_interval,3)))
+    #print("The MAE of the model @ 95% confidence interval is " + str(round(mae,3)) + "±"+ str(round(mae_interval,3)))
+    #print("The PSNR of the model @ 95% confidence interval is " + str(round(psnr,3)))
+    #print("Correlation is " + str(round((np.corrcoef(x,y)[0][1]),3)))
+    #print("Theres a 95% likelihood that the true value is between +/- " +str(round(p_interval,3)))
+#%%
+import glob
+pred_list = glob.glob('E:/data/ISRO-project/intermediate_products/VH_predicted_NDVI/rescaled_NDVI/norm_pred_*.tif')[:-1]
+act_list = glob.glob('E:/data/ISRO-project/intermediate_products/VH_predicted_NDVI/rescaled_NDVI/act_*.tif')[:-1]
 
-compute_errors(x,vv_y)    
+x = read_image(act_list[11])
+x = np.asarray(x).ravel()
+
+vh_y = read_image(pred_list[11])
+vh_y = np.asarray(vh_y).ravel()
+compute_errors(x,vh_y)
+
+metrics_list = []
+for i in range(12):
+    x = read_image(act_list[i])
+    x = np.asarray(x).ravel()
+    
+    vh_y = read_image(pred_list[i])
+    vh_y = np.asarray(vh_y).ravel()
+    metrics = compute_errors(x,vh_y)
+    metrics_list.append(metrics)
+    print("***************")
+
+'''
+def xc(a,b):
+    print(np.matmul(a,b) / np.sqrt(np.sum(np.square(a)) * np.sum(np.square(b))))
+
+xc(x,vv_y)
+'''
+#vh_y = read_image(r'E:\data\ISRO-project\intermediate_products\VH_predicted_NDVI\pred_12.tif')
+#vh_y = np.asarray(vh_y).ravel()
+
+
+# Prediction interval
+# https://machinelearningmastery.com/prediction-intervals-for-machine-learning/
+
+
+    
 '''
 A confidence interval is different from a tolerance interval that describes the bounds of data sampled from the distribution. 
 It is also different from a prediction interval that describes the bounds on a single observation. 

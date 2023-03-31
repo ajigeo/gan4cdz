@@ -25,6 +25,6 @@ and used to predict the test data.
 Open the image-prediction.py file. Now load the pretrained model weights from the previous step. Change the locations of the VH and VV test images to predict. Also change the location of the final predictions.
 Now running the code will genearte the output plots for the twelve months and save the generated NDVI in the assigned folder.
 
-### Validating the predicted images
+## Validating the predicted images
 
 The errors in the prediction can be calculated and plotted using the gan_errors.py file. 
